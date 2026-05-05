@@ -1,0 +1,65 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "axiom-ext-openmc"
+version = "0.1.0"
+description = "OpenMC physics-code extension for the Axiom platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "The University of Texas at Austin" },
+    { name = "B-Tree Labs", email = "engineering@b-tree-labs.dev" },
+]
+keywords = ["axiom", "openmc", "monte-carlo", "neutron-transport", "nuclear-engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+    # Entry-point adapter discovery (axiom.compute.adapters lazy-loads on first
+    # miss) lands in axiom-os-lm 0.15.0. Required for `axi model run --on
+    # local:openmc` to work without manual `import axiom_ext_openmc`.
+    "axiom-os-lm >= 0.15",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >= 7.0",
+    "pytest-timeout >= 2.0",
+]
+# OpenMC binary itself is NOT a Python dependency — it's a separate native install
+# (conda install -c conda-forge openmc) or runs via Docker (openmc/openmc image).
+# The adapter discovers the available runner at execute() time.
+
+# AEOS adapter discovery — declaring under this group makes the OpenMC kernel
+# available via `axi model run --on local:openmc` immediately after `pip install
+# axiom-ext-openmc`, with no manual import required. axiom.compute.adapters
+# discovers + registers via importlib.metadata.entry_points on first lookup miss.
+[project.entry-points."axiom.compute.adapters"]
+openmc = "axiom_ext_openmc.adapter:OpenMCKernelAdapter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/axiom_ext_openmc"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/axiom_ext_openmc/tests"]
+pythonpath = ["src"]
+markers = [
+    "docker: tests that require Docker + the openmc/openmc image (opt-in via -m docker)",
+    "slow: tests that take >1s to run (opt-in via -m slow)",
+]

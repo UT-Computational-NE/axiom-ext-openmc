@@ -1,0 +1,132 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+# Publish to PyPI
+#
+# REQUIRES: a trusted publisher configured on pypi.org for this repo.
+# Without it, the publish step fails with `invalid-publisher`. To configure:
+#   1. Log into pypi.org as an admin of the UT-Computational-NE PyPI organization
+#   2. Go to https://pypi.org/manage/organization/UT-Computational-NE/ → Publishing
+#   3. Add publisher (or pending publisher for first-time publish):
+#        - Owner: UT-Computational-NE
+#        - Repository: axiom-ext-openmc
+#        - Workflow: publish.yml
+#        - Environment: pypi
+#
+# For the first tag push, use pypi.org's "pending publisher" feature so the
+# project is created INSIDE the UT-Computational-NE organization from the
+# very first publish:
+#   https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
+
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag or commit to publish'
+        required: true
+        default: 'main'
+
+jobs:
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: python -m build
+      - name: List built artifacts
+        run: ls -la dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: pypi
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - id: extract_version
+        name: Extract version from built wheel
+        run: |
+          # Format: axiom_ext_openmc-0.1.0-py3-none-any.whl → 0.1.0
+          wheel=$(ls dist/*.whl | head -1)
+          version=$(basename "$wheel" | sed -E 's/^axiom_ext_openmc-([^-]+)-.*/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $version"
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  post_publish_smoke:
+    name: Post-publish PyPI smoke
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for PyPI to index the new version
+        env:
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          pip install --upgrade pip
+          for attempt in $(seq 1 30); do
+            if pip index versions axiom-ext-openmc 2>/dev/null | grep -q "$VERSION"; then
+              echo "✓ axiom-ext-openmc $VERSION is resolvable from PyPI"
+              exit 0
+            fi
+            echo "Attempt $attempt: axiom-ext-openmc $VERSION not yet on PyPI, sleeping 10s..."
+            sleep 10
+          done
+          echo "✗ axiom-ext-openmc $VERSION still not on PyPI after 5 minutes"
+          echo "  — check https://pypi.org/manage/organization/UT-Computational-NE/"
+          echo "  — first publish requires the org-level pending publisher to be set up:"
+          echo "    https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/"
+          exit 1
+
+  create_github_release:
+    name: Create GitHub Release
+    needs: [publish, post_publish_smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "✓ release $TAG already exists; skipping"
+            exit 0
+          fi
+          tag_body=$(git tag -l --format='%(contents)' "$TAG" || true)
+          if [ -n "$tag_body" ] && [ "$(echo "$tag_body" | tr -d '[:space:]')" != "" ]; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes "$tag_body"
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+          echo "✓ GitHub Release $TAG created"

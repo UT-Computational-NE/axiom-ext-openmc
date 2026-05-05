@@ -1,0 +1,48 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+# OpenMC physics-code extension — per ADR-018 (revised 2026-05-04):
+# physics codes are full AEOS extensions, not just CodeAdapter classes.
+#
+# OpenMC is BSD-3 licensed and ships via the public distribution channel.
+# Real OpenMC binary install is via Docker (openmc/openmc image) or conda;
+# this extension's CodeAdapter invokes whichever runner is available.
+
+[extension]
+name = "openmc"
+version = "0.1.0"
+description = "OpenMC physics-code extension — Monte Carlo neutron transport adapter"
+license = "Apache-2.0"
+owner = "axiom-labs"
+aeos_version = "0.1.0"
+builtin = true
+
+[extension.compatibility]
+python = ">= 3.11"
+axiom = ">= 0.10"
+
+[extension.distribution]
+channel = "public"
+license_check = false
+export_control_required = false
+runner_options = ["subprocess", "docker", "ssh"]
+default_runner = "subprocess"  # falls through to docker if openmc not on PATH
+
+[[extension.provides]]
+kind = "adapter"
+name = "openmc_kernel_adapter"
+entry = "axiom_ext_openmc.adapter:OpenMCKernelAdapter"
+description = "CodeAdapter wiring OpenMC into axiom.compute.dispatch"
+
+# Future capability declarations (Phase 2c+):
+# [[extension.provides]]
+# kind = "skill"
+# name = "build_pin_cell_input"
+# entry = "axiom_ext_openmc.skills.build_input:build_pin_cell_input"
+# description = "MCP-callable: build an OpenMC 2D pin-cell input deck from parameters"
+#
+# [[extension.provides]]
+# kind = "skill"
+# name = "parse_statepoint"
+# entry = "axiom_ext_openmc.skills.parse_output:parse_statepoint"
+# description = "MCP-callable: extract canonical value_summary from statepoint.h5"

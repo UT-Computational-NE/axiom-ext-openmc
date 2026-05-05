@@ -1,0 +1,103 @@
+axiom-ext-openmc — OpenMC physics-code extension for the Axiom platform
+========================================================================
+
+Copyright (c) 2026 The University of Texas at Austin
+Copyright (c) 2026 B-Tree Labs
+
+Licensed under the Apache License, Version 2.0 (the "License"); you
+may not use this work except in compliance with the License. You may
+obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied. See the License for the specific language governing
+permissions and limitations under the License.
+
+*B-Tree Labs is the operating name of B-Tree Ventures, LLC.*
+
+
+Joint copyright
+---------------
+
+This package is jointly copyrighted by:
+
+  * The University of Texas at Austin
+  * B-Tree Labs
+
+Authorship spans:
+
+  * Work performed by Benjamin Booth as a UT-Austin researcher under
+    federally-funded research grants. UT-Austin holds the UT-portion
+    of the joint copyright on this work.
+
+  * Work performed by Benjamin Booth on personal time using personal
+    resources, as principal of B-Tree Labs. B-Tree Labs holds the
+    B-Tree-portion of the joint copyright on this work.
+
+The two contribution streams are interleaved to the point where no
+clean per-file split would accurately carry either name alone. The
+package is therefore released as a single jointly-copyrighted work
+under Apache-2.0 rather than via per-file attribution.
+
+Per the grant terms and the federal Bayh-Dole framework as applied
+by UT, the resulting software is released under an OSI-approved
+license (Apache-2.0) for the public good.
+
+
+Lineage and design rationale
+----------------------------
+
+This package was originally developed inside the axiom-os monorepo
+(https://github.com/b-tree-labs/axiom-os) under `packages/axiom-ext-openmc/`,
+and was extracted to its own repository per ADR-044 (extension
+distribution model) and ADR-018 (each physics code is its own
+AEOS-conformant Axiom extension; physics = native).
+
+The extraction is documented in those ADRs and in
+`docs/working/2026-05-04-recovery-followups.md` of the source repo.
+
+
+External dependencies
+---------------------
+
+This product depends on **OpenMC** (https://openmc.org/), licensed
+separately under the MIT License. OpenMC is NOT distributed as part
+of this package; users install it independently via:
+
+  * conda — `conda install -c conda-forge openmc` (recommended)
+  * Docker — adapter pulls `openmc/openmc:latest` automatically when
+    no native binary is found on PATH
+  * Source build per OpenMC's documentation
+
+This product depends on **axiom-os-lm**
+(https://pypi.org/project/axiom-os-lm/) for adapter base classes
+and dispatch primitives, also licensed under Apache-2.0 with the
+same copyright holders.
+
+
+Trademarks
+----------
+
+"Axiom", "AEOS", and the B-Tree Labs origin-glyph mark are
+trademarks of B-Tree Labs (B-Tree Ventures, LLC). The Apache-2.0
+license does not grant rights to use these marks; see Apache-2.0 §6.
+
+Use of "The University of Texas at Austin" and associated UT marks
+is governed by UT brand policy and is not granted by this license.
+
+"OpenMC" is a trademark of its respective copyright holders; this
+project is not affiliated with or endorsed by the OpenMC Project.
+
+
+Contributing
+------------
+
+Contributors agree to license their contributions under Apache-2.0.
+Each commit should carry a `Signed-off-by:` trailer (DCO sign-off).
+
+This product includes software developed by:
+  - The University of Texas at Austin (https://www.utexas.edu)
+  - B-Tree Labs (https://b-tree-labs.com)

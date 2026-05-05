@@ -1,0 +1,72 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff
+        run: ruff check src/ --select E,F,W --ignore E501
+
+  unit-tests:
+    name: Unit Tests (${{ matrix.python-version }})
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install (test extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: Run unit tests
+        # Skip the docker-marked smoke test in unit CI; that runs separately
+        # in a job that has Docker available.
+        run: pytest -q -m "not docker" --tb=short --timeout=60
+
+  docker-smoke:
+    name: Docker Smoke (Phase 2c)
+    needs: lint
+    runs-on: ubuntu-latest
+    # Marked continue-on-error for the first publish window — the openmc/openmc
+    # image is large (~3 GB) and pull time + Rosetta-on-Linux semantics may
+    # surface flakes the first few runs. Promote to a hard gate after we see
+    # 5 consecutive green runs.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify Docker available
+        run: docker version
+      - name: Pull openmc/openmc image
+        run: docker pull openmc/openmc:latest
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: Run docker smoke
+        run: pytest -m docker -v --timeout=600
