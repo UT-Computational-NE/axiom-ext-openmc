@@ -5,6 +5,21 @@ Apache-2.0 · AEOS-conformant · works with or without Axiom present.
 
 Per ADR-018 ("each physics code is its own AEOS-conformant Axiom extension; physics = native") and ADR-044 ("standalone-or-builtin extension distribution"), this package is the standalone wrapper that lets [OpenMC](https://openmc.org/) participate in Axiom's federated compute primitives — without changing how OpenMC is normally used.
 
+## Why this exists
+
+OpenMC by itself is a physics code — a CLI, a Python API, a binary, a set of input decks. Excellent at what it does. But on its own it's a lifeless digital organism: no error recovery beyond crash messages, no provenance beyond a `statepoint.h5`, no observability beyond stdout, no way to coordinate runs across federation peers, no signed receipt for the result.
+
+Axiom changes what OpenMC *is* in four concrete ways once this package is installed:
+
+1. **Way easier to install.** `pip install axiom-ext-openmc` is the integration step; entry-point discovery handles the rest. No manifest hand-editing, no manual import dance.
+2. **Way more flexible in form.** Bare-metal, Docker container, SSH-to-peer, or federation-dispatched — all from the same wrapper without code changes.
+3. **More integrated.** OpenMC composes with provenance, federation routing, classification gates, live observability, signed receipts, and RACI-managed automation — all of Axiom's nervous system.
+4. **More useful as a standalone entity.** Even with no Axiom-aware consumer present, the wrapper acquires compositional value the moment any Axiom env exists on the host. Default-installed Axiom agents (M-O hygiene, AXI chat, PR-T publishing, D-FIB diagnostics) auto-engage with OpenMC runs — error recovery, output lifecycle, failure diagnosis — for free.
+
+> *Axiom 'breathes life' into an otherwise lifeless digital organism. Axiom is the neural spark, nervous system, and heartbeat to the host it inhabits.* (ADR-044 D6)
+
+If you're already running OpenMC traditionally and have no Axiom env on your host, this package is invisible — your existing OpenMC workflows keep working unchanged. If you have any Axiom env, this package wires OpenMC into it without you needing to do anything more than installing the package.
+
 ## What this package is, and is not
 
 | It IS | It IS NOT |
