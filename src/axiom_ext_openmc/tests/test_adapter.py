@@ -234,12 +234,17 @@ def test_references_have_correct_shape():
 
 
 def test_install_references_into_dict_backed_registry():
-    """install_references works with a duck-typed registry that takes dicts."""
+    """install_references works with a duck-typed registry that takes dicts.
+
+    Every ML2327 value is still a seeded placeholder, so the opt-in flag is
+    required to exercise the wiring at all. The default path installs nothing
+    on purpose — see ``test_reference_provisional.py``.
+    """
     captured = []
     class DictRegistry:
         def register(self, item):
             captured.append(item)
 
-    count = install_references(DictRegistry())
+    count = install_references(DictRegistry(), include_provisional=True)
     assert count == len(OPENMC_NRC_ML2327_REFERENCES)
     assert len(captured) == count

@@ -11,7 +11,10 @@ problem set N_1..N_5.
 Phase 5 ships a small seed set covering the MSR neutronics progression
 problems N_1..N_5; specific values are placeholders pending domain review
 (same as the NRC ML2327 module's TRIGA seeds). Reviewers replace the
-TBD-FROM-DOC values with actual ORNL-TM-0728 §X values before Phase 5d
+TBD-FROM-DOC values with actual ORNL-TM-0728 §X values before Phase 5d.
+
+Every seeded value is marked ``provisional=True`` and is therefore **not
+installed** by ``install_references`` until a reviewer replaces it.
 real-OpenMC integration on the MSR set.
 
 The structure is canonical so consumers (NeutronOS MSRProvider) can wire
@@ -36,6 +39,11 @@ class ReferenceSpec:
     unit: str
     source: str = "ORNL-TM-0728"
     citation: str = "ORNL-TM-0728, Molten Salt Reactor Experiment Design and Operations Report Part I"
+    provisional: bool = False
+    """True when ``value``/``uncertainty`` are seeded placeholders, not values
+    extracted from the source document. Provisional specs are refused by
+    :func:`axiom_ext_openmc.references.install_specs` so a case with no real
+    reference reports "no reference" rather than a fabricated agreement."""
 
 
 # Phase 5 seed set — placeholders for canonical MSR progression problems.
@@ -48,6 +56,7 @@ OPENMC_ORNL_TM_0728_REFERENCES: list[ReferenceSpec] = [
         value=1.00120,        # placeholder
         uncertainty=0.00060,  # placeholder — 60 pcm typical for benchmark MSR cases
         unit="pcm",
+        provisional=True,
     ),
     # MSR N_2: Pin-cell-equivalent for MSR fuel salt geometry
     ReferenceSpec(
@@ -55,6 +64,7 @@ OPENMC_ORNL_TM_0728_REFERENCES: list[ReferenceSpec] = [
         value=1.00342,        # placeholder
         uncertainty=0.00050,  # placeholder
         unit="pcm",
+        provisional=True,
     ),
     # MSR N_3: 2D core slice w/ fuel salt + graphite moderator + control rods
     ReferenceSpec(
@@ -62,6 +72,7 @@ OPENMC_ORNL_TM_0728_REFERENCES: list[ReferenceSpec] = [
         value=0.99850,        # placeholder
         uncertainty=0.00075,  # placeholder
         unit="pcm",
+        provisional=True,
     ),
     # MSR N_4: 3D full core configuration (cold critical)
     ReferenceSpec(
@@ -69,6 +80,7 @@ OPENMC_ORNL_TM_0728_REFERENCES: list[ReferenceSpec] = [
         value=1.00021,        # placeholder
         uncertainty=0.00075,  # placeholder
         unit="pcm",
+        provisional=True,
     ),
     # MSR N_5: 3D full core w/ fission product evolution (depletion-aware)
     ReferenceSpec(
@@ -76,20 +88,23 @@ OPENMC_ORNL_TM_0728_REFERENCES: list[ReferenceSpec] = [
         value=0.99750,        # placeholder
         uncertainty=0.00100,  # depletion uncertainties typically larger
         unit="pcm",
+        provisional=True,
     ),
 ]
 
 
-def install_references(registry) -> int:
-    """Register all ORNL-TM-0728 references into the given registry; return count installed."""
-    from dataclasses import asdict
+def install_references(registry, *, include_provisional: bool = False) -> int:
+    """Register these references into ``registry``; return how many were installed.
 
-    count = 0
-    for spec in OPENMC_ORNL_TM_0728_REFERENCES:
-        try:
-            from neutron_os.extensions.builtins.twin.references import Reference
-            registry.register(Reference(**asdict(spec)))
-        except ImportError:
-            registry.register(asdict(spec))
-        count += 1
-    return count
+    Provisional (placeholder) references are **skipped by default** — see
+    :func:`axiom_ext_openmc.references.install_specs`. Until domain reviewers
+    replace the seeded values with ones extracted from the source document,
+    this installs nothing and the affected cases report "no reference".
+    """
+    from axiom_ext_openmc.references import install_specs
+
+    return install_specs(
+        OPENMC_ORNL_TM_0728_REFERENCES,
+        registry,
+        include_provisional=include_provisional,
+    )
