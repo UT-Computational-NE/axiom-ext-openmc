@@ -30,12 +30,17 @@ def test_msr_references_cover_n_1_through_n_5():
 
 
 def test_msr_install_references_into_dict_registry():
-    """install_references works with a duck-typed dict-backed registry."""
+    """install_references works with a duck-typed dict-backed registry.
+
+    Every Phase 5 value is still provisional, so the opt-in flag is required to
+    exercise the wiring. The default path is covered in
+    ``test_reference_provisional.py`` and installs nothing.
+    """
     captured = []
     class DictRegistry:
         def register(self, item):
             captured.append(item)
 
-    count = install_references(DictRegistry())
+    count = install_references(DictRegistry(), include_provisional=True)
     assert count == len(OPENMC_ORNL_TM_0728_REFERENCES)
     assert count == 5
