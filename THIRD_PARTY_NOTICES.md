@@ -58,9 +58,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Status
+### Note on scope
 
-The upstream repository declares MIT in its packaging classifiers but did not
-carry a `LICENSE` file at the time of adoption. Adding it is proposed in
-[sarhon/OpenMC_Crash_Course#1](https://github.com/sarhon/OpenMC_Crash_Course/pull/1).
-Update this section when that merges.
+The physical parameters used here — 1.26 cm pin pitch, 0.39 cm fuel radius,
+0.45 cm cladding radius, a 17×17 array with guide tubes — are the standard
+light-water-reactor benchmark geometry that appears in OpenMC's own
+documentation and throughout the reactor-physics literature. They are not
+anyone's invention.
+
+What was adopted from the course, and what this notice credits, is the
+**pedagogical ordering**: a ladder that introduces these problems one source of
+difficulty at a time. That ordering is the useful idea, and it is why the ladder
+was adopted rather than reinvented.
+
+The course declares MIT in its packaging classifiers; the work was performed
+under DOE, State of Texas and UT Austin funding.
