@@ -71,11 +71,22 @@ verification/
   runner.py         build a case, delegate to the adapter. no execution logic.
 ```
 
-The ladder is **ordered, simplest first**. Rung 1 is an infinite medium: one
-material, no geometry, so a wrong answer is a materials or nuclear-data problem
-and never a geometric one. Higher rungs add geometry only after the rung below
-is trusted. `CaseRegistry.all()` preserves registration order because that order
-is the argument.
+The ladder is **ordered, simplest first**, and each rung adds exactly one source
+of difficulty so a failure localises:
+
+| Rung | Adds | A failure here means |
+|---|---|---|
+| `infinite_medium_uo2` | nothing — one material | materials or nuclear data |
+| `pincell_uo2` | radial heterogeneity | geometry or boundary conditions |
+| `assembly_17x17` | lattice + guide tubes | lattice construction, not pin physics |
+
+`CaseRegistry.all()` preserves registration order because that order is the
+argument.
+
+Rungs 2 and 3 are adapted from the OpenMC Crash Course by Harrison Reisinger,
+MIT licensed — see `THIRD_PARTY_NOTICES.md`. His course teaches these problems
+in order of increasing difficulty, which is exactly the property a verification
+ladder needs, so it was adopted rather than reinvented.
 
 ### Running it for real
 
@@ -100,8 +111,16 @@ missing. A skipped verification suite is honest; a mocked one is not.
 3. Register a `VerificationCase` with a `reference://` URI, a description saying
    what this rung isolates, and particle and cycle counts that converge in
    seconds.
-4. Add a rung-specific assertion to `test_verification_integration.py` — a
-   physically defensible bound, not a hardcoded number you have not verified.
+4. The generic assertions in `test_verification_integration.py` — runs, plausible,
+   reports uncertainty, loses no particles, reproducible — are parametrized over
+   the registry and pick up a new rung automatically. Add a rung-specific test
+   only for a physical relationship you can defend without a reference, the way
+   `test_moderated_lattices_thermalise_above_the_bare_medium` does.
+
+**Assert weakly until references are real.** Every reference in this package is
+provisional, so integration tests check plausibility, self-consistency and
+reproducibility — never equality with an unverified number. Asserting against a
+value nobody has checked is the fabricated-agreement bug in a new costume.
 
 Never write inputs beside your source file. The runner owns the directory so
 concurrent runs cannot collide.
@@ -155,6 +174,12 @@ verifies a path production does not take.
 `conftest.py` is sys.path plumbing only. Use the `statepoint(**overrides)`
 factory rather than restating a seven-key dict — a test should show the one field
 it is about.
+
+**Vendored teaching material keeps its attribution.** Adapted work is credited
+in the module docstring, in the function that uses it, and in
+`THIRD_PARTY_NOTICES.md` with the upstream licence text and a table saying which
+rung came from which source file. Adapt into our shapes; do not copy files
+wholesale, and never drop the author's name.
 
 **Every module docstring says why, not what.** The what is readable from the
 code. Explain the failure the module prevents.
