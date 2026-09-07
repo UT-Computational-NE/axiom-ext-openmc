@@ -52,16 +52,8 @@ def test_adapter_name():
     assert OpenMCKernelAdapter.name == "openmc"
 
 
-def test_adapter_returns_kernel_result_on_success(adapter, basic_state):
-    fake_statepoint = {
-        "k_eff": 1.00342,
-        "k_eff_std": 0.00012,
-        "n_cycles": 50,
-        "shannon_entropy": 6.13,
-        "convergence": "stationary",
-        "tallies": {},
-        "lost_particles": 0,
-    }
+def test_adapter_returns_kernel_result_on_success(adapter, basic_state, statepoint):
+    fake_statepoint = statepoint()
     with patch.object(OpenMCKernelAdapter, "_run_openmc_subprocess") as run, \
          patch.object(OpenMCKernelAdapter, "_parse_statepoint") as parse:
         run.return_value = (0, "", "")
@@ -73,16 +65,8 @@ def test_adapter_returns_kernel_result_on_success(adapter, basic_state):
     assert result.value_summary["k_eff"] == pytest.approx(1.00342)
 
 
-def test_adapter_detects_lost_particles(adapter, basic_state):
-    statepoint_with_lost = {
-        "k_eff": 1.0,
-        "k_eff_std": 0.001,
-        "n_cycles": 50,
-        "shannon_entropy": 6.0,
-        "convergence": "stationary",
-        "tallies": {},
-        "lost_particles": 8432,
-    }
+def test_adapter_detects_lost_particles(adapter, basic_state, statepoint):
+    statepoint_with_lost = statepoint(lost_particles=8432)
     with patch.object(OpenMCKernelAdapter, "_run_openmc_subprocess") as run, \
          patch.object(OpenMCKernelAdapter, "_parse_statepoint") as parse:
         run.return_value = (0, "", "")
@@ -156,17 +140,9 @@ def test_auto_detect_raises_when_nothing_available(adapter):
 # ----- Docker runner -----
 
 
-def test_docker_runner_invokes_docker_with_bind_mount(adapter, basic_state):
+def test_docker_runner_invokes_docker_with_bind_mount(adapter, basic_state, statepoint):
     """The docker runner constructs a 'docker run --rm -v ... openmc/openmc' command."""
-    fake_statepoint = {
-        "k_eff": 1.0,
-        "k_eff_std": 0.001,
-        "n_cycles": 10,
-        "shannon_entropy": 6.0,
-        "convergence": "stationary",
-        "tallies": {},
-        "lost_particles": 0,
-    }
+    fake_statepoint = statepoint(k_eff=1.0)
     with patch("axiom_ext_openmc.adapter.subprocess.run") as proc_run, \
          patch.object(OpenMCKernelAdapter, "_parse_statepoint") as parse:
         proc_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
@@ -186,13 +162,9 @@ def test_docker_runner_invokes_docker_with_bind_mount(adapter, basic_state):
     assert result.value_summary["k_eff"] == 1.0
 
 
-def test_docker_runner_custom_image(adapter, basic_state):
+def test_docker_runner_custom_image(adapter, basic_state, statepoint):
     """kernel_options['docker_image'] overrides the default image."""
-    fake_statepoint = {
-        "k_eff": 1.0, "k_eff_std": 0.001, "n_cycles": 10,
-        "shannon_entropy": 6.0, "convergence": "stationary",
-        "tallies": {}, "lost_particles": 0,
-    }
+    fake_statepoint = statepoint(k_eff=1.0)
     with patch("axiom_ext_openmc.adapter.subprocess.run") as proc_run, \
          patch.object(OpenMCKernelAdapter, "_parse_statepoint") as parse:
         proc_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
