@@ -7,6 +7,10 @@ and this extension adheres to [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### Changed
+
+- README states what the extension is, and diagrams the package, the Axiom runtime, and AEOS.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added
