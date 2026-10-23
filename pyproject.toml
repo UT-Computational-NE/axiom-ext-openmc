@@ -42,9 +42,14 @@ Homepage = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
 Repository = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
 
 [project.optional-dependencies]
+# HDF5 statepoint reading. OpenMC itself stays optional and is not imported.
+statepoint = [
+    "h5py >= 3.10",
+]
 test = [
     "pytest >= 7.0",
     "pytest-timeout >= 2.0",
+    "h5py >= 3.10",
     # `axi ext lint` imports the MCP server while loading the ext command.
     "mcp >= 2",
     # AEOS schema + ExtensionStandardTests. Not published on PyPI; pinned to
@@ -66,6 +71,13 @@ openmc = "axiom_ext_openmc.adapter:OpenMCKernelAdapter"
 # `axi ext validate` checks this group, not axiom.compute.adapters.
 [project.entry-points."axiom.adapters"]
 openmc = "axiom_ext_openmc.adapters.openmc:OpenMCKernelAdapter"
+
+[project.scripts]
+axiom-openmc = "axiom_ext_openmc.commands.openmc:main"
+
+# AEOS kind=cmd. `axi ext validate` checks this group, keyed by the manifest noun.
+[project.entry-points."axiom.commands"]
+openmc = "axiom_ext_openmc.commands.openmc:build_parser"
 
 [tool.hatch.metadata]
 allow-direct-references = true

@@ -1,18 +1,20 @@
 # Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
 # SPDX-License-Identifier: Apache-2.0
 
-"""The library the OpenMC toolkit calls.
+"""The library the OpenMC toolkit and ``axiom-openmc`` call.
 
-Skills validate parameters and return a ``SkillResult``. The operations live
-here so a person, a test, or another extension can do the same work without
-an agent in the loop. Importing this module does not import OpenMC and does
-not import the adapter, so listing cases and grading references works on a
-machine that has neither.
+Skills and CLI verbs check arguments and call these functions. Importing
+this module does not import OpenMC, h5py, or the adapter, so listing cases,
+grading references, and reading XML works on a machine that has none of
+them. Statepoint reading imports h5py when called. Running or planning a
+directory imports the adapter when called.
 
 Grading never reports agreement against a provisional reference. A missing
 reference is ``no_reference``. A placeholder is ``provisional``. Only a
 reference whose ``provisional`` flag has been cleared is compared, and then
-only as a magnitude check against its stated uncertainty.
+only as a magnitude check against its stated uncertainty. Comparing two
+statepoints is a separate magnitude check of the numbers those files
+reported, and it is not a reference grade.
 """
 
 from __future__ import annotations
@@ -22,15 +24,23 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from axiom_ext_openmc.inputs import check_cross_sections, summarize_model, validate_model
 from axiom_ext_openmc.references.nrc_ml2327 import OPENMC_NRC_ML2327_REFERENCES
 from axiom_ext_openmc.references.ornl_tm_0728 import OPENMC_ORNL_TM_0728_REFERENCES
+from axiom_ext_openmc.statepoint import compare_statepoints, read_statepoint
 
 __all__ = [
+    "check_cross_sections",
+    "compare_statepoints",
     "grade",
     "list_cases",
     "parse_summary",
+    "plan_run",
+    "read_statepoint",
     "run_input",
     "runner_status",
+    "summarize_model",
+    "validate_model",
 ]
 
 
@@ -164,10 +174,10 @@ def _tolerance(reference_uncertainty: float, k_eff_std: float | None) -> float:
 def parse_summary(input_dir: str | Path) -> dict[str, Any]:
     """Read the canonical summary the adapter already knows how to read.
 
-    Host-side HDF5 parsing is not implemented on the adapter. This function
-    does not add a second parser. It calls ``OpenMCKernelAdapter._parse_statepoint``
-    and lets that method's ``NotImplementedError`` or ``FileNotFoundError``
-    through.
+    This calls ``OpenMCKernelAdapter._parse_statepoint`` and does not parse
+    the file a second time. A ``result.json`` written by the container runner
+    is that summary. Otherwise the adapter reads ``statepoint.*.h5`` through
+    :func:`read_statepoint`.
     """
     path = Path(input_dir)
     if not path.is_dir():
@@ -207,3 +217,52 @@ def run_input(
     if xs_library is not None:
         state["xs_library"] = xs_library
     return OpenMCKernelAdapter().execute(state, dict(kernel_options or {}))
+
+
+def plan_run(
+    input_dir: str | Path,
+    *,
+    kernel_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Describe a run and do not start one.
+
+    The particle and batch counts in the plan are the ones written in
+    ``settings.xml``. The adapter does not rewrite that file, so counts
+    passed to :func:`run_input` are not applied here and are not applied
+    by ``execute`` either. ``ready`` means the XML check passed, the
+    selected cross-section index is usable, and ``connect`` found a local
+    runner. It does not mean a result will match a reference.
+    """
+    directory = Path(input_dir)
+    validation = validate_model(directory)
+    summary = summarize_model(directory)
+    data = check_cross_sections(model_dir=directory if directory.is_dir() else None)
+    from axiom_ext_openmc.adapter import OpenMCKernelAdapter
+
+    connect = OpenMCKernelAdapter().connect(dict(kernel_options or {}))
+    batches = summary["settings"].get("batches")
+    spec_json = directory.is_dir() and (directory / "spec.json").is_file()
+    outputs = ["summary.h5"]
+    if isinstance(batches, int) and batches > 0:
+        outputs.append(f"statepoint.{batches}.h5")
+    else:
+        outputs.append("statepoint.<batches>.h5")
+    return {
+        "executed": False,
+        "ready": bool(validation["ok"] and data["ok"] and connect.get("connected")),
+        "input_dir": str(directory),
+        "validation": validation,
+        "summary": summary,
+        "cross_sections": data,
+        "runner": connect,
+        "spec_json": spec_json,
+        "invocation": (
+            "Dry run: OpenMC was not started. A subprocess run executes the "
+            "openmc binary with its working directory set to the input "
+            "directory. A docker run executes openmc in the container when "
+            "spec.json is absent, and the container runner script when "
+            "spec.json is present. Neither path rewrites settings.xml. "
+            + ("spec.json is present." if spec_json else "spec.json is not present.")
+        ),
+        "expected_outputs": outputs,
+    }

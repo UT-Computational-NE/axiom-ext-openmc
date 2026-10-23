@@ -61,8 +61,14 @@ def test_ext_lint_has_no_errors(extension_dir: Path):
     errors = [item for item in payload["findings"] if item["severity"] == "error"]
     assert proc.returncode == 0, json.dumps(errors, indent=2)
     assert errors == []
-    assert payload["chain"]["claimed"] == "C"
+    # Governing AEOS is 0.1.0. The draft amendment's AEOS101 says a claim
+    # above A needs aeos_version >= 0.2, so this manifest claims A. The
+    # shipped recipe still scores C; AEOS103 records that conflict and is
+    # not an error.
+    assert payload["chain"]["claimed"] == "A"
     assert payload["chain"]["achieved"] == "C"
+    notes = payload["chain"].get("notes") or []
+    assert any(note.get("code") == "AEOS103" for note in notes)
 
 
 def test_ext_validate_passes(extension_dir: Path):

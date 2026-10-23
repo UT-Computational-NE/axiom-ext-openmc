@@ -80,7 +80,13 @@ def test_a_cleared_reference_is_a_magnitude_check(monkeypatch):
     assert outside["reference_value"] == 1.0
 
 
-def test_parse_summary_reads_result_json_and_refuses_a_bare_statepoint(tmp_path):
+def test_parse_summary_reads_result_json_and_rejects_a_non_hdf5_file(tmp_path):
+    """result.json stays the container summary.
+
+    A file named statepoint.*.h5 that is not HDF5 used to raise
+    NotImplementedError, which locked in the missing reader. The adapter now
+    calls the shared reader, so the same file is an unreadable statepoint.
+    """
     deck = tmp_path / "deck"
     deck.mkdir()
     (deck / "result.json").write_text(json.dumps({"k_eff": 1.02, "k_eff_std": 0.001}))
@@ -89,7 +95,7 @@ def test_parse_summary_reads_result_json_and_refuses_a_bare_statepoint(tmp_path)
     bare = tmp_path / "bare"
     bare.mkdir()
     (bare / "statepoint.10.h5").write_bytes(b"not really hdf5")
-    with pytest.raises(NotImplementedError, match="h5py"):
+    with pytest.raises(ValueError, match="not a readable HDF5"):
         parse_summary(bare)
 
 

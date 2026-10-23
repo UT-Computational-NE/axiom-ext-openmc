@@ -86,8 +86,8 @@ DECLARATIONS: list[dict[str, Any]] = [
         "fn": impl.parse_summary,
         "description": (
             "Read the canonical value summary from an OpenMC output directory "
-            "using the adapter's parser, including its refusal to parse HDF5 "
-            "on the host."
+            "using the adapter's parser. result.json wins when present; "
+            "otherwise the shared statepoint reader supplies k-eff and tally tables."
         ),
         "risk": "read",
         "side_effects": False,
@@ -200,6 +200,183 @@ DECLARATIONS: list[dict[str, Any]] = [
         "recipes": ["grade-a-run"],
         "inputs": {"reference_uri": "str", "k_eff": "float", "k_eff_std": "float"},
     },
+    {
+        "name": "openmc.validate",
+        "fn": impl.validate,
+        "description": (
+            "Check an OpenMC input directory's materials, geometry, settings, "
+            "and tallies before a run. Structural references only; it does not "
+            "start a solve and it does not report a k-eff."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [
+            {
+                "id": "model-dir",
+                "description": "An OpenMC input directory must already exist.",
+                "fix": (
+                    "Pass input_dir pointing at a directory that contains "
+                    "materials.xml, geometry.xml, and settings.xml."
+                ),
+            }
+        ],
+        "produces": [],
+        "next_steps": [
+            {
+                "target": "openmc.show",
+                "when": "ok",
+                "why": "Summarize the cells, materials, tallies, and batch settings that validated.",
+            }
+        ],
+        "recipes": [],
+        "inputs": {"input_dir": "str", "use_openmc": "bool"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
+    {
+        "name": "openmc.show",
+        "fn": impl.show,
+        "description": (
+            "Summarize an OpenMC model: cells, materials, surfaces, tallies, "
+            "and the particle and batch settings written in settings.xml."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [
+            {
+                "id": "model-dir",
+                "description": "An OpenMC input directory must already exist.",
+                "fix": (
+                    "Pass input_dir pointing at a directory that contains "
+                    "materials.xml, geometry.xml, and settings.xml."
+                ),
+            }
+        ],
+        "produces": [],
+        "next_steps": [
+            {
+                "target": "openmc.review",
+                "when": "ok",
+                "why": "Build a dry-run plan from the summary. The plan does not start OpenMC.",
+            }
+        ],
+        "recipes": [],
+        "inputs": {"input_dir": "str"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
+    {
+        "name": "openmc.stat",
+        "fn": impl.stat,
+        "description": (
+            "Read an OpenMC statepoint. k-eff and its standard deviation come "
+            "from the k_combined dataset. Tally means and standard deviations "
+            "are the sum and sum-of-squares reduction OpenMC stores."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [
+            {
+                "id": "statepoint",
+                "description": "A statepoint file, or a directory containing statepoint.*.h5.",
+                "fix": "Pass path to statepoint.<batch>.h5 or to the directory OpenMC wrote.",
+            }
+        ],
+        "produces": [
+            {
+                "kind": "k_eff",
+                "how_to_use": "pass as k_eff to openmc.grade",
+                "field": "k_eff",
+            }
+        ],
+        "next_steps": [
+            {
+                "target": "openmc.grade",
+                "when": "produced:k_eff",
+                "why": "Grade the k-eff that was read from the statepoint.",
+                "feeds": {"k_eff": "k_eff"},
+            }
+        ],
+        "recipes": [],
+        "inputs": {"path": "str"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
+    {
+        "name": "openmc.diff",
+        "fn": impl.diff,
+        "description": (
+            "Compare two OpenMC statepoints. delta is the left reported value "
+            "minus the right. The tolerance is the root-sum-square of the two "
+            "reported standard deviations, not a published reference."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [
+            {
+                "id": "two-statepoints",
+                "description": "Two statepoint paths.",
+                "fix": "Pass left and right, each a statepoint file or a directory containing one.",
+            }
+        ],
+        "produces": [],
+        "next_steps": [],
+        "recipes": [],
+        "inputs": {"left": "str", "right": "str"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
+    {
+        "name": "openmc.check",
+        "fn": impl.check,
+        "description": (
+            "Check cross-section data: OPENMC_CROSS_SECTIONS or a path, the "
+            "files the index names, and, when a model directory is given, the "
+            "nuclide and S(a,b) names that model uses."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [],
+        "produces": [],
+        "next_steps": [],
+        "recipes": [],
+        "inputs": {"path": "str", "model_dir": "str"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
+    {
+        "name": "openmc.review",
+        "fn": impl.review,
+        "description": (
+            "Dry-run plan for an OpenMC directory: validation, model summary, "
+            "cross-section check, and the runner connect would select. "
+            "executed is false. OpenMC is not started."
+        ),
+        "risk": "read",
+        "side_effects": False,
+        "idempotent": True,
+        "open_world": False,
+        "requires": [
+            {
+                "id": "model-dir",
+                "description": "An OpenMC input directory must already exist.",
+                "fix": (
+                    "Pass input_dir pointing at a directory that contains "
+                    "materials.xml, geometry.xml, and settings.xml."
+                ),
+            }
+        ],
+        "produces": [],
+        "next_steps": [],
+        "recipes": [],
+        "inputs": {"input_dir": "str", "runner": "str"},
+        "surfaces": ["cli", "mcp", "skill_md"],
+    },
 ]
 
 
@@ -257,7 +434,7 @@ def bind(registry: Any) -> list[str]:
                 side_effects=item["side_effects"],
                 idempotent=item["idempotent"],
                 open_world=item["open_world"],
-                surfaces=("mcp", "skill_md"),
+                surfaces=tuple(item.get("surfaces", ("mcp", "skill_md"))),
                 risk=item["risk"],
                 requires=requires,
                 produces=produces,

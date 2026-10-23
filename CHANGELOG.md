@@ -7,8 +7,14 @@ and this extension adheres to [Semantic Versioning](https://semver.org/spec/v2.0
 
 ## [Unreleased]
 
+### Added
+
+- Library operations, shared by `axiom-openmc` and the skills `openmc.validate`, `openmc.show`, `openmc.stat`, `openmc.diff`, `openmc.check`, and `openmc.review`: validate materials, geometry, settings, and tallies; summarize a model; read a statepoint's k-eff and tally tables; compare two statepoints; check `OPENMC_CROSS_SECTIONS`; dry-run a directory without starting OpenMC.
+- Optional `statepoint` extra (`h5py`). Without it, statepoint reading raises ImportError and names the extra. Tests use HDF5 fixtures, not a solver.
+
 ### Changed
 
+- Host-side `statepoint.*.h5` reading goes through `axiom_ext_openmc.statepoint`. The adapter calls that reader when `result.json` is absent. A non-HDF5 file is an error, not `NotImplementedError`.
 - README states what the extension is, and diagrams the package, the Axiom runtime, and AEOS.
 
 ## [0.2.0] - 2026-10-23
@@ -21,7 +27,7 @@ and this extension adheres to [Semantic Versioning](https://semver.org/spec/v2.0
 
 ### Changed
 
-- The extension is a standalone distribution (`builtin = false`). It declares `aeos_version = "0.2.0"` and chain level C, which is the additive chain-readiness minor inside the governing AEOS 0.1 document. AEOS 1.0 is a draft and is not claimed.
+- The extension is a standalone distribution (`builtin = false`). It declares `aeos_version = "0.1.0"` and chain level A. AEOS 0.2 chain-readiness is a draft amendment: the shipped recipe would score chain level C, and claiming C requires `aeos_version >= "0.2"` (AEOS101). Lint records AEOS103. AEOS 1.0 is a draft and is not claimed. Package version 0.2.0 is this extension's semver, not the AEOS spec version.
 - Grading a provisional reference reports `provisional` and does not report agreement. A missing reference reports `no_reference`.
 
 ### Fixed

@@ -15,11 +15,17 @@ from typing import Any
 from axiom_ext_openmc import library
 
 __all__ = [
+    "check",
     "check_runner",
+    "diff",
     "grade",
     "list_cases",
     "parse_summary",
+    "review",
     "run_input",
+    "show",
+    "stat",
+    "validate",
 ]
 
 
@@ -102,14 +108,13 @@ def parse_summary(params: dict[str, Any], ctx: Any) -> Any:
             ok=False,
             errors=[
                 "pass input_dir as the path of the directory OpenMC wrote. "
-                "A result.json in that directory is read; a statepoint with "
-                "no result.json is reported as host-side HDF5 parsing not "
-                "implemented, which is the adapter's own answer."
+                "A result.json in that directory is read. Otherwise "
+                "statepoint.*.h5 is read by the shared statepoint reader."
             ],
         )
     try:
         summary = library.parse_summary(input_dir)
-    except (FileNotFoundError, NotImplementedError, OSError, ValueError) as exc:
+    except (FileNotFoundError, NotImplementedError, OSError, ValueError, ImportError) as exc:
         return _result(ok=False, errors=[str(exc)])
     return _result(ok=True, value=summary)
 
@@ -188,3 +193,129 @@ def run_input(params: dict[str, Any], ctx: Any) -> Any:
             errors=[f"OpenMC run faulted: {fault.name}"],
         )
     return _result(ok=True, value=value)
+
+
+def _required_str(params: dict[str, Any], key: str, fix: str) -> tuple[str | None, Any]:
+    value = params.get(key)
+    if not isinstance(value, str) or not value:
+        return None, _result(ok=False, errors=[fix])
+    return value, None
+
+
+def validate(params: dict[str, Any], ctx: Any) -> Any:
+    """Validate an input directory. Does not start a solve."""
+    del ctx
+    input_dir, failed = _required_str(
+        params,
+        "input_dir",
+        "Pass input_dir pointing at a directory that contains materials.xml, "
+        "geometry.xml, and settings.xml.",
+    )
+    if failed is not None:
+        return failed
+    use_openmc = params.get("use_openmc", False)
+    if not isinstance(use_openmc, bool):
+        return _result(ok=False, errors=["use_openmc must be a boolean when supplied."])
+    report = library.validate_model(input_dir, use_openmc=use_openmc)
+    return _result(
+        ok=bool(report["ok"]),
+        value=report,
+        errors=[item["message"] for item in report["errors"]],
+    )
+
+
+def show(params: dict[str, Any], ctx: Any) -> Any:
+    """Summarize the model that was written. Does not start a solve."""
+    del ctx
+    input_dir, failed = _required_str(
+        params,
+        "input_dir",
+        "Pass input_dir pointing at a directory that contains materials.xml, "
+        "geometry.xml, and settings.xml.",
+    )
+    if failed is not None:
+        return failed
+    report = library.summarize_model(input_dir)
+    return _result(
+        ok=not report["errors"],
+        value=report,
+        errors=[item["message"] for item in report["errors"]],
+    )
+
+
+def stat(params: dict[str, Any], ctx: Any) -> Any:
+    """Read one statepoint. The numbers are the ones in the file."""
+    del ctx
+    path, failed = _required_str(
+        params,
+        "path",
+        "Pass path to a statepoint.*.h5 file or a directory that contains one.",
+    )
+    if failed is not None:
+        return failed
+    try:
+        report = library.read_statepoint(path)
+    except (FileNotFoundError, ValueError, ImportError, OSError) as exc:
+        return _result(ok=False, errors=[str(exc)])
+    return _result(ok=True, value=report)
+
+
+def diff(params: dict[str, Any], ctx: Any) -> Any:
+    """Compare two statepoints. delta is left minus right."""
+    del ctx
+    left, failed = _required_str(params, "left", "Pass left as the path of the first statepoint.")
+    if failed is not None:
+        return failed
+    right, failed = _required_str(params, "right", "Pass right as the path of the second statepoint.")
+    if failed is not None:
+        return failed
+    try:
+        report = library.compare_statepoints(left, right)
+    except (FileNotFoundError, ValueError, ImportError, OSError) as exc:
+        return _result(ok=False, errors=[str(exc)])
+    return _result(ok=True, value=report)
+
+
+def check(params: dict[str, Any], ctx: Any) -> Any:
+    """Check the cross-section index and, when asked, the model's nuclide names."""
+    del ctx
+    path = params.get("path")
+    model = params.get("model_dir")
+    if path is not None and not isinstance(path, str):
+        return _result(ok=False, errors=["path must be a string when supplied."])
+    if model is not None and not isinstance(model, str):
+        return _result(ok=False, errors=["model_dir must be a string when supplied."])
+    report = library.check_cross_sections(path or None, model or None)
+    return _result(
+        ok=bool(report["ok"]),
+        value=report,
+        errors=[item["message"] for item in report["errors"]],
+    )
+
+
+def review(params: dict[str, Any], ctx: Any) -> Any:
+    """Plan a run. executed is false. OpenMC is not started."""
+    del ctx
+    input_dir, failed = _required_str(
+        params,
+        "input_dir",
+        "Pass input_dir pointing at a directory that contains materials.xml, "
+        "geometry.xml, and settings.xml.",
+    )
+    if failed is not None:
+        return failed
+    runner = params.get("runner")
+    if runner is not None and not isinstance(runner, str):
+        return _result(ok=False, errors=["runner must be a string when supplied."])
+    options = {"runner": runner} if runner else None
+    report = library.plan_run(input_dir, kernel_options=options)
+    errors = []
+    if not report["validation"]["ok"]:
+        errors.extend(item["message"] for item in report["validation"]["errors"])
+    if not report["cross_sections"]["ok"]:
+        errors.extend(item["message"] for item in report["cross_sections"]["errors"])
+    if not report["runner"].get("connected"):
+        reason = report["runner"].get("reason")
+        if reason:
+            errors.append(reason)
+    return _result(ok=bool(report["ready"]), value=report, errors=errors)

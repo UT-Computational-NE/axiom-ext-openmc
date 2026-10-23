@@ -84,3 +84,27 @@ class TestRunInputSkill(_OpenMCSkill):
 
 class TestGradeSkill(_OpenMCSkill):
     skill_dir = "grade"
+
+
+class TestValidateSkill(_OpenMCSkill):
+    skill_dir = "validate"
+
+
+class TestShowSkill(_OpenMCSkill):
+    skill_dir = "show"
+
+
+class TestStatSkill(_OpenMCSkill):
+    skill_dir = "stat"
+
+
+class TestDiffSkill(_OpenMCSkill):
+    skill_dir = "diff"
+
+
+class TestCheckSkill(_OpenMCSkill):
+    skill_dir = "check"
+
+
+class TestReviewSkill(_OpenMCSkill):
+    skill_dir = "review"

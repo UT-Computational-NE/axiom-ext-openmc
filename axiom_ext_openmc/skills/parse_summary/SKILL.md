@@ -8,4 +8,4 @@ Read-only. Calls `axiom_ext_openmc.library.parse_summary`, which calls `OpenMCKe
 
 Input: `input_dir`, the directory OpenMC wrote.
 
-A `result.json` in that directory is read. A `statepoint.*.h5` without `result.json` returns the adapter's statement that host-side HDF5 parsing is not implemented.
+A `result.json` in that directory is read. Without one, `statepoint.*.h5` is read by `axiom_ext_openmc.statepoint`, the same reader `openmc.stat` uses. There is still one parser.

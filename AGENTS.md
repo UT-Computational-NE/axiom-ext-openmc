@@ -11,14 +11,20 @@ in it without reintroducing the two failure modes it has already had.
 ## The one-paragraph version
 
 This package wraps OpenMC as an Axiom extension. `adapter.py` runs a directory
-that already contains OpenMC inputs. `library.py` is the public API for runner
-status, the verification ladder, summary parsing, one adapter run, and grading.
-`skills/` is the toolkit: each skill calls the library and does not grow a
-second runner or a second parser. `verification/` builds input directories
-from declared cases, so the package can prove it runs real physics rather than
+that already contains OpenMC inputs. `library.py` is the public API: runner
+status, the verification ladder, model checks, statepoint tables, a dry-run
+plan, summary parsing, one adapter run, and grading. `skills/` and
+`commands/openmc` call that library. They do not grow a second runner or a
+second statepoint parser. `verification/` builds input directories from
+declared cases, so the package can prove it runs real physics rather than
 asserting it against mocks. `references/` holds published values a run can be
 graded against. Nothing here authors reactor geometry — that belongs to the
 model-construction libraries upstream.
+
+The governing AEOS version in the manifest is 0.1.0. Package version 0.2.0
+is this extension's semver. Chain level C is what the draft §4.11 amendment
+would score, and claiming it requires `aeos_version >= 0.2` (AEOS101). The
+manifest claims A and leaves that note in place.
 
 Grading a provisional reference reports `provisional` and does not report
 agreement. That rule lives in `library.grade` so a skill cannot bypass it.
@@ -172,9 +178,11 @@ string. The trunk stays green, and the marker fails as XPASS the moment someone
 fixes it, so it cannot be quietly left behind.
 
 **Do not duplicate the adapter.** `runner.py` builds inputs and delegates.
-Runner selection, invocation, statepoint parsing and lost-particle faulting live
-in `adapter.py` and must have exactly one implementation, or verification
-verifies a path production does not take.
+Runner selection, invocation, and lost-particle faulting live in `adapter.py`.
+Statepoint HDF5 parsing lives in `statepoint.py`. The adapter calls that
+reader when `result.json` is absent. Commands and skills call the library,
+which calls the same reader. A second parser means verification checks a path
+production does not take.
 
 **Shared fixtures live in `tests/conftest.py`.** The repository-root
 `conftest.py` is sys.path plumbing only. Use the `statepoint(**overrides)`
