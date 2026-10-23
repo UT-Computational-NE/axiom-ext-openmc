@@ -21,7 +21,7 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Run ruff
-        run: ruff check src/ --select E,F,W --ignore E501
+        run: ruff check axiom_ext_openmc tests --select E,F,W --ignore E501
 
   unit-tests:
     name: Unit Tests (${{ matrix.python-version }})

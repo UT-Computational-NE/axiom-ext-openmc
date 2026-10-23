@@ -7,8 +7,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axiom-ext-openmc"
-version = "0.1.0"
-description = "OpenMC physics-code extension for the Axiom platform"
+version = "0.2.0"
+description = "OpenMC physics-code extension for the Axiom platform — Monte Carlo adapter, grading library, and the skills that call it."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -37,10 +37,24 @@ dependencies = [
     "axiom-os-lm >= 0.15",
 ]
 
+[project.urls]
+Homepage = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
+Repository = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
+
 [project.optional-dependencies]
+# HDF5 statepoint reading. OpenMC itself stays optional and is not imported.
+statepoint = [
+    "h5py >= 3.10",
+]
 test = [
     "pytest >= 7.0",
     "pytest-timeout >= 2.0",
+    "h5py >= 3.10",
+    # `axi ext lint` imports the MCP server while loading the ext command.
+    "mcp >= 2",
+    # AEOS schema + ExtensionStandardTests. Not published on PyPI; pinned to
+    # the axiom-os commit whose spec this extension was audited against.
+    "axiom-tests @ git+https://github.com/b-tree-labs/axiom-os.git@0216abc984c071ddf56f625ad7b8076ed34fe58d#subdirectory=packages/axiom-tests",
 ]
 # OpenMC binary itself is NOT a Python dependency — it's a separate native install
 # (conda install -c conda-forge openmc) or runs via Docker (openmc/openmc image).
@@ -53,13 +67,33 @@ test = [
 [project.entry-points."axiom.compute.adapters"]
 openmc = "axiom_ext_openmc.adapter:OpenMCKernelAdapter"
 
+# AEOS kind=adapter. The label is the manifest `integration` value.
+# `axi ext validate` checks this group, not axiom.compute.adapters.
+[project.entry-points."axiom.adapters"]
+openmc = "axiom_ext_openmc.adapters.openmc:OpenMCKernelAdapter"
+
+[project.scripts]
+axiom-openmc = "axiom_ext_openmc.commands.openmc:main"
+
+# AEOS kind=cmd. `axi ext validate` checks this group, keyed by the manifest noun.
+[project.entry-points."axiom.commands"]
+openmc = "axiom_ext_openmc.commands.openmc:build_parser"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/axiom_ext_openmc"]
+packages = ["axiom_ext_openmc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"axiom-extension.toml" = "axiom_ext_openmc/axiom-extension.toml"
 
 [tool.pytest.ini_options]
-testpaths = ["src/axiom_ext_openmc/tests"]
-pythonpath = ["src"]
+testpaths = ["axiom_ext_openmc/tests", "tests"]
+pythonpath = ["."]
+addopts = "--import-mode=importlib"
 markers = [
     "docker: tests that require Docker + the openmc/openmc image (opt-in via -m docker)",
     "slow: tests that take >1s to run (opt-in via -m slow)",
+    "integration: AEOS integration-level conformance tests",
 ]

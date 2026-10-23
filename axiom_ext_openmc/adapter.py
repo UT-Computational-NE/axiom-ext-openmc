@@ -115,6 +115,48 @@ class OpenMCKernelAdapter(CodeAdapter):
 
         return KernelResult(value_summary=value_summary, fault=None)
 
+    def connect(self, kernel_options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Resolve a local OpenMC runner. AEOS §4.5 connection entry.
+
+        OpenMC has no remote identity provider. ``auth`` is ``none``: connecting
+        means naming the runner that would execute and whether its program is
+        on PATH. This does not start a solve and does not open an SSH session.
+        The ssh runner is still unimplemented, so a request for it reports that
+        instead of pretending a peer was contacted.
+        """
+        options = dict(kernel_options or {})
+        try:
+            runner = self._select_runner(options)
+        except RuntimeError as exc:
+            return {"connected": False, "runner": None, "auth": "none", "reason": str(exc)}
+        if runner.startswith("ssh:"):
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": (
+                    "the ssh runner is named but not implemented; "
+                    "connect does not open a session"
+                ),
+            }
+        if runner == "subprocess" and shutil.which(
+            str(options.get("openmc_executable", "openmc"))
+        ) is None:
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": "runner is subprocess but the openmc executable is not on PATH",
+            }
+        if runner == "docker" and shutil.which("docker") is None:
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": "runner is docker but the docker executable is not on PATH",
+            }
+        return {"connected": True, "runner": runner, "auth": "none", "reason": None}
+
     # --- Runner selection + dispatch ---
 
     def _select_runner(self, kernel_options: dict[str, Any]) -> str:
@@ -252,34 +294,36 @@ class OpenMCKernelAdapter(CodeAdapter):
     def _parse_statepoint(self, input_dir: Path) -> dict[str, Any]:
         """Parse statepoint into a canonical dict.
 
-        Two paths:
+        Two paths, one reader:
 
-        1. **Spec-driven mode (Phase 2c)**: the docker runner script writes
-           result.json with the canonical value_summary alongside the
-           statepoint. Read it directly — no host-side h5py required.
+        1. **Spec-driven mode**: the docker runner script writes result.json.
+           Read it directly.
 
-        2. **Pre-built XML mode**: requires h5py (or openmc.StatePoint) to
-           extract values from statepoint.<N>.h5 on the host. Defers to
-           Phase 2d when host-side h5py is available.
+        2. **Statepoint file**: ``statepoint.read_statepoint`` reads
+           ``statepoint.*.h5``. h5py is optional; if it is missing that
+           function raises ImportError with the install extra. This method
+           does not implement a second HDF5 parser.
         """
         import json as _json
 
+        from axiom_ext_openmc.statepoint import read_statepoint
+
         # Spec-driven path: result.json was written by the container runner.
+        # That file is the summary the container already reduced. It is not
+        # re-parsed from HDF5.
         result_path = input_dir / "result.json"
         if result_path.exists():
             return _json.loads(result_path.read_text())
 
-        # Pre-built XML path: needs host-side h5py.
-        statepoints = sorted(input_dir.glob("statepoint.*.h5"))
-        if not statepoints:
+        # The HDF5 reader is statepoint.read_statepoint. Call it; do not
+        # grow a second parser here.
+        try:
+            return read_statepoint(input_dir)
+        except FileNotFoundError:
             raise FileNotFoundError(
                 f"no statepoint.*.h5 or result.json found in {input_dir}; "
                 "OpenMC may have failed silently or written to an unexpected location."
-            )
-        raise NotImplementedError(
-            "host-side statepoint parsing requires h5py (Phase 2d); "
-            "use spec-driven mode (place a spec.json in input_dir) for Phase 2c."
-        )
+            ) from None
 
 # Adapter discovery: declared via the `axiom.compute.adapters` Python entry-point
 # group in pyproject.toml. axiom-os-lm >= 0.15 lazy-loads entry points on first
