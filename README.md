@@ -100,11 +100,27 @@ neut model run my-model --on local:openmc --tail
 
 ## What's in the box
 
-- `axiom_ext_openmc.adapter:OpenMCKernelAdapter` — the `CodeAdapter` implementation, registered via `[project.entry-points."axiom.compute.adapters"]`
-- `axiom_ext_openmc.references` — published reference k-eff/tally values (initially: ORNL TM-728 MSR references, Phase 5)
-- `axiom_ext_openmc.facility_packs/` — facility-specific OpenMC templates (Phase 2c+)
-- `axiom_ext_openmc.skills/` — MCP-callable tools for LLM-mediated input authoring + output parsing (Phase 2c+)
+- `axiom_ext_openmc.library` — the public library: runner status, the verification ladder, summary parsing, `run_input` (one call into the production adapter), and `grade` (a provisional reference is not an agreement)
+- `axiom_ext_openmc.skills` — the toolkit. Five skills (`openmc.check_runner`, `openmc.list_cases`, `openmc.parse_summary`, `openmc.run_input`, `openmc.grade`) call that library and nothing else. `grade-a-run` is the recipe that orders check, list, run, and grade
+- `axiom_ext_openmc.adapter:OpenMCKernelAdapter` — the `CodeAdapter`, registered via `[project.entry-points."axiom.compute.adapters"]` and, for AEOS, via `axiom.adapters`
+- `axiom_ext_openmc.references` — published reference k-eff values, provisional until a reviewer extracts the real numbers
+- `axiom_ext_openmc.facility_packs/` — facility-specific OpenMC templates (not populated)
 - `axiom_ext_openmc._docker_runner_script` — self-contained script bind-mounted into the openmc/openmc container
+
+### Library
+
+```python
+from axiom_ext_openmc import grade, list_cases, runner_status
+
+print(runner_status())
+print(list_cases())
+print(grade("reference://ornl-tm-0728/msr-N_1/k-eff", k_eff=1.0012))
+# status == "provisional", agrees is None. The placeholder is not compared.
+```
+
+### Toolkit
+
+With Axiom installed, `axiom_ext_openmc.skills.bind(registry)` registers the skills on a `SkillRegistry`. Each skill returns a `SkillResult` from the matching library function. Importing `axiom_ext_openmc` does not import the adapter, so the library can be used where `axiom.compute` is absent; `run_input` and `parse_summary` import it when called.
 
 ## Versioning + compatibility
 

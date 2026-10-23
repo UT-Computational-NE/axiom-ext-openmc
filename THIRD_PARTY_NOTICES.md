@@ -14,7 +14,7 @@ require.
 
 ### What is used, and where
 
-`src/axiom_ext_openmc/verification/builtin_cases.py` adapts two problems from
+`axiom_ext_openmc/verification/builtin_cases.py` adapts two problems from
 the course's `examples/` progression into verification cases:
 
 | Rung | Adapted from |

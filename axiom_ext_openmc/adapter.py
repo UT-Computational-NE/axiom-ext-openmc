@@ -115,6 +115,48 @@ class OpenMCKernelAdapter(CodeAdapter):
 
         return KernelResult(value_summary=value_summary, fault=None)
 
+    def connect(self, kernel_options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Resolve a local OpenMC runner. AEOS §4.5 connection entry.
+
+        OpenMC has no remote identity provider. ``auth`` is ``none``: connecting
+        means naming the runner that would execute and whether its program is
+        on PATH. This does not start a solve and does not open an SSH session.
+        The ssh runner is still unimplemented, so a request for it reports that
+        instead of pretending a peer was contacted.
+        """
+        options = dict(kernel_options or {})
+        try:
+            runner = self._select_runner(options)
+        except RuntimeError as exc:
+            return {"connected": False, "runner": None, "auth": "none", "reason": str(exc)}
+        if runner.startswith("ssh:"):
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": (
+                    "the ssh runner is named but not implemented; "
+                    "connect does not open a session"
+                ),
+            }
+        if runner == "subprocess" and shutil.which(
+            str(options.get("openmc_executable", "openmc"))
+        ) is None:
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": "runner is subprocess but the openmc executable is not on PATH",
+            }
+        if runner == "docker" and shutil.which("docker") is None:
+            return {
+                "connected": False,
+                "runner": runner,
+                "auth": "none",
+                "reason": "runner is docker but the docker executable is not on PATH",
+            }
+        return {"connected": True, "runner": runner, "auth": "none", "reason": None}
+
     # --- Runner selection + dispatch ---
 
     def _select_runner(self, kernel_options: dict[str, Any]) -> str:

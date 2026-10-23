@@ -1,0 +1,211 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+# OpenMC physics-code extension.
+#
+# Governing spec: AEOS 0.1 (docs/specs/spec-aeos-0.1.md in b-tree-labs/axiom-os),
+# including the 0.2 chain-readiness rules that document carries and that
+# `axi ext lint` enforces. AEOS 1.0 is a draft and is not the governing spec;
+# this manifest does not claim 1.0.
+#
+# aeos_version 0.2.0 is the additive chain minor (AEOS §4.11). chain_level C
+# is claimed because the grade-a-run recipe is shipped and the skills declare
+# risk, requires, and follow-ups.
+#
+# The distribution directory on GitHub is `axiom-ext-openmc` (hyphen, PEP 503).
+# The manifest name is `axiom_ext_openmc` because the schema rejects hyphens
+# and the name must match the Python package. `axi ext lint` AEOS030 compares
+# the filesystem directory name byte-for-byte, so lint the extension through
+# a directory named `axiom_ext_openmc`.
+
+[extension]
+name = "axiom_ext_openmc"
+version = "0.2.0"
+description = "OpenMC physics-code extension for the Axiom platform — Monte Carlo adapter, grading library, and the skills that call it."
+license = "Apache-2.0"
+owner = "axiom-labs"
+repository = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
+homepage = "https://github.com/UT-Computational-NE/axiom-ext-openmc"
+aeos_version = "0.2.0"
+chain_level = "C"
+builtin = false
+classification_ceiling = "public"
+
+[extension.compatibility]
+python = ">=3.11"
+axiom = ">=0.15"
+
+[extension.uncertainty]
+posture = "magnitude-only"
+
+[extension.mcp]
+enabled = true
+visibility = "public"
+auth = "local_stdio"
+description = "Toolkit skills reach MCP through the skill-registry projection (surfaces include mcp). This block does not restate per-skill input schemas."
+
+[[extension.provides]]
+kind = "adapter"
+integration = "openmc"
+entry = "axiom_ext_openmc.adapters.openmc:OpenMCKernelAdapter"
+description = "CodeAdapter that runs an existing OpenMC input directory via subprocess or Docker."
+auth_methods = ["none"]
+capabilities = ["execute", "subprocess", "docker"]
+
+[[extension.provides]]
+kind = "skill"
+name = "openmc.check_runner"
+entry = "axiom_ext_openmc.skills.impl:check_runner"
+path = "axiom_ext_openmc/skills/check_runner"
+description = "Report whether this machine can run OpenMC: the Python package, the nuclear-data file, the openmc binary, and Docker, as separate facts."
+risk = "read"
+side_effects = false
+idempotent = true
+open_world = false
+surfaces = ["mcp", "skill_md"]
+requires = []
+produces = []
+recipes = ["grade-a-run"]
+
+[[extension.provides.next_steps]]
+target = "openmc.list_cases"
+when = "ok"
+why = "See which verification cases exist before choosing one to run."
+
+[[extension.provides]]
+kind = "skill"
+name = "openmc.list_cases"
+entry = "axiom_ext_openmc.skills.impl:list_cases"
+path = "axiom_ext_openmc/skills/list_cases"
+description = "List the verification ladder in order, including each case's reference URI and the particle and cycle counts the case declares."
+risk = "read"
+side_effects = false
+idempotent = true
+open_world = false
+surfaces = ["mcp", "skill_md"]
+requires = []
+recipes = ["grade-a-run"]
+
+[[extension.provides.produces]]
+kind = "reference_uri"
+how_to_use = "pass as reference_uri to openmc.grade"
+field = "cases"
+
+[[extension.provides.next_steps]]
+target = "openmc.run_input"
+when = "ok"
+why = "Run one case's input directory with the counts the case declares."
+
+[[extension.provides]]
+kind = "skill"
+name = "openmc.parse_summary"
+entry = "axiom_ext_openmc.skills.impl:parse_summary"
+path = "axiom_ext_openmc/skills/parse_summary"
+description = "Read the canonical value summary from an OpenMC output directory using the adapter's parser, including its refusal to parse HDF5 on the host."
+risk = "read"
+side_effects = false
+idempotent = true
+open_world = false
+surfaces = ["mcp", "skill_md"]
+recipes = []
+
+[[extension.provides.requires]]
+id = "input-dir"
+description = "The output directory must exist."
+fix = "pass input_dir pointing at a directory that contains geometry.xml, materials.xml, and settings.xml, or a spec.json for the container runner"
+
+[[extension.provides.produces]]
+kind = "k_eff"
+how_to_use = "pass as k_eff to openmc.grade"
+field = "k_eff"
+
+[[extension.provides.next_steps]]
+target = "openmc.grade"
+when = "produced:k_eff"
+why = "Grade a summary that was parsed rather than freshly run."
+
+[extension.provides.next_steps.feeds]
+k_eff = "k_eff"
+
+[[extension.provides]]
+kind = "skill"
+name = "openmc.run_input"
+entry = "axiom_ext_openmc.skills.impl:run_input"
+path = "axiom_ext_openmc/skills/run_input"
+description = "Run one existing OpenMC input directory through the production adapter. Does not author geometry. Particle and cycle counts are the caller's, copied from the case, not a second default."
+risk = "reversible-write"
+side_effects = true
+idempotent = false
+open_world = true
+surfaces = ["mcp", "skill_md"]
+recipes = ["grade-a-run"]
+
+[[extension.provides.requires]]
+id = "input-dir"
+description = "An OpenMC input directory must already exist."
+fix = "pass input_dir pointing at a directory that contains geometry.xml, materials.xml, and settings.xml, or a spec.json for the container runner"
+
+[[extension.provides.produces]]
+kind = "k_eff"
+how_to_use = "pass as k_eff to openmc.grade"
+field = "k_eff"
+
+[[extension.provides.next_steps]]
+target = "openmc.grade"
+when = "produced:k_eff"
+why = "Grade the multiplication factor. A provisional reference is reported as provisional and is not an agreement."
+
+[extension.provides.next_steps.feeds]
+k_eff = "k_eff"
+
+[[extension.provides]]
+kind = "skill"
+name = "openmc.grade"
+entry = "axiom_ext_openmc.skills.impl:grade"
+path = "axiom_ext_openmc/skills/grade"
+description = "Compare a computed k-eff to a declared reference. A missing reference is no_reference. A provisional reference is not compared and does not report agreement."
+risk = "read"
+side_effects = false
+idempotent = true
+open_world = false
+surfaces = ["mcp", "skill_md"]
+produces = []
+next_steps = []
+recipes = ["grade-a-run"]
+
+[[extension.provides.requires]]
+id = "k-eff"
+description = "A computed multiplication factor."
+fix = "Call openmc.run_input or openmc.parse_summary and pass its k_eff."
+consumes = "k_eff"
+param = "k_eff"
+
+[[extension.provides.requires]]
+id = "reference-uri"
+description = "The reference:// URI the case declares."
+fix = "Pass reference_uri from openmc.list_cases (each case's reference_uri)."
+
+[[extension.provides]]
+kind = "recipe"
+name = "grade-a-run"
+path = "axiom_ext_openmc/recipes/grade-a-run.toml"
+description = "Check the machine, list the ladder, run one prepared input directory, and grade k-eff."
+
+[[extension.consumes]]
+kind = "core"
+package = "axiom"
+version = ">=0.15"
+
+[extension.federation]
+shareable = false
+requires_attestation = false
+quarantine_recoverable = false
+
+[extension.signing]
+required = true
+methods = ["sigstore"]
+publisher_identity = "UT-Computational-NE"
+
+[extension.testing]
+standard_tests = ["unit", "integration"]
+test_base_class = "axiom_tests.unit_tests.ExtensionStandardTests"

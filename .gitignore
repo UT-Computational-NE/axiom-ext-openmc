@@ -42,3 +42,4 @@ tracks.h5
 # Local secrets / runtime
 .env
 runtime/
+.axi/

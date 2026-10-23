@@ -11,11 +11,17 @@ in it without reintroducing the two failure modes it has already had.
 ## The one-paragraph version
 
 This package wraps OpenMC as an Axiom extension. `adapter.py` runs a directory
-that already contains OpenMC inputs. `verification/` builds those directories
+that already contains OpenMC inputs. `library.py` is the public API for runner
+status, the verification ladder, summary parsing, one adapter run, and grading.
+`skills/` is the toolkit: each skill calls the library and does not grow a
+second runner or a second parser. `verification/` builds input directories
 from declared cases, so the package can prove it runs real physics rather than
 asserting it against mocks. `references/` holds published values a run can be
 graded against. Nothing here authors reactor geometry — that belongs to the
 model-construction libraries upstream.
+
+Grading a provisional reference reports `provisional` and does not report
+agreement. That rule lives in `library.grade` so a skill cannot bypass it.
 
 ---
 
@@ -189,7 +195,7 @@ code. Explain the failure the module prevents.
 ## Commands
 
 ```bash
-pytest src/axiom_ext_openmc/tests/ -q        # full suite (integration skips without OpenMC)
+pytest -q                                 # full suite (OpenMC integration skips without OpenMC)
 pytest -k verification -q                     # ladder only
 pytest -rs                                    # show skip reasons
 ruff check src/                               # lint
