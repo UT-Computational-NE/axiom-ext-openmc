@@ -191,6 +191,25 @@ def test_unknown_runner_raises(adapter, basic_state):
         adapter.execute(basic_state, kernel_options={"runner": "warp-drive"})
 
 
+def test_connect_reports_ssh_as_unimplemented(adapter):
+    """connect is the AEOS connection entry. SSH is named and not opened."""
+    status = adapter.connect({"runner": "ssh:rascal"})
+    assert status["connected"] is False
+    assert status["auth"] == "none"
+    assert status["runner"] == "ssh:rascal"
+    assert "not implemented" in status["reason"]
+
+
+def test_connect_names_a_missing_subprocess(adapter):
+    status = adapter.connect({"runner": "subprocess", "openmc_executable": "openmc-not-installed"})
+    assert status == {
+        "connected": False,
+        "runner": "subprocess",
+        "auth": "none",
+        "reason": "runner is subprocess but the openmc executable is not on PATH",
+    }
+
+
 # ----- References -----
 
 

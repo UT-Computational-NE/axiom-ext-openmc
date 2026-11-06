@@ -1,0 +1,46 @@
+# Copyright (c) 2026 The University of Texas at Austin and B-Tree Labs
+# SPDX-License-Identifier: Apache-2.0
+
+id = "grade-a-run"
+intent = "Check that OpenMC can run, list the verification ladder, execute one prepared input directory, and grade k-eff without treating a provisional reference as agreement."
+rollback = "Delete the statepoint and result files the run wrote in input_dir. The recipe does not delete the input deck."
+
+[params]
+input_dir = "Path of an existing OpenMC input directory."
+reference_uri = "reference:// URI taken from the case being graded."
+n_particles = "Particle count declared by that case."
+n_active_cycles = "Active cycle count declared by that case."
+n_inactive_cycles = "Inactive cycle count declared by that case."
+rng_seed = "Seed declared by that case."
+
+[[step]]
+id = "check"
+skill = "openmc.check_runner"
+purpose = "Say whether the Python package, nuclear data, binary, and Docker are present before starting a solve."
+
+[[step]]
+id = "list"
+skill = "openmc.list_cases"
+purpose = "Show the ladder so the reference URI and the case's particle and cycle counts are copied, not invented."
+
+[[step]]
+id = "run"
+skill = "openmc.run_input"
+purpose = "Execute the prepared directory through the production adapter."
+undo = "Delete statepoint and result files written under input_dir."
+
+[step.inputs]
+input_dir = "$input_dir"
+n_particles = "$n_particles"
+n_active_cycles = "$n_active_cycles"
+n_inactive_cycles = "$n_inactive_cycles"
+rng_seed = "$rng_seed"
+
+[[step]]
+id = "grade"
+skill = "openmc.grade"
+purpose = "Compare the run's k-eff to the declared reference, or report that the reference is missing or provisional."
+
+[step.inputs]
+reference_uri = "$reference_uri"
+k_eff = "$run.k_eff"
